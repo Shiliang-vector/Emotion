@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import aiofiles
@@ -28,7 +29,17 @@ class TaskService:
             while chunk := await file.read(1024 * 1024):
                 await target.write(chunk)
 
-        task = Task(task_id=task_id, status="queued", video_path=video_path)
+        now = datetime.now()
+        task = Task(
+            task_id=task_id,
+            status="queued",
+            video_path=video_path,
+            stage="queued",
+            progress=5,
+            message="视频已上传，等待后台分析",
+            created_at=now,
+            updated_at=now,
+        )
         self._tasks[task_id] = task
         return task
 
@@ -37,7 +48,7 @@ class TaskService:
         if not task:
             return
 
-        task.status = "processing"
+        self._update_task(task, "processing", "preparing_video", 10, "正在抽帧并提取音频")
         try:
             video_data = await video_service.prepare_video(
                 task_id,
@@ -45,32 +56,38 @@ class TaskService:
                 settings.frames_dir,
                 settings.audio_dir,
             )
+            self._update_task(task, "processing", "analyzing_face", 35, "正在分析人脸表情")
             face_result = await face_service.analyze(
                 task_id,
                 video_data["frames_dir"],
                 video_data["frame_count"],
             )
+            self._update_task(task, "processing", "analyzing_speech", 60, "正在分析语音转写和声学特征")
             speech_result = await speech_service.analyze(
                 task_id,
                 video_data["audio_path"],
                 video_data["duration_seconds"],
             )
 
+            self._update_task(task, "processing", "fusing_features", 78, "正在融合视觉和语音特征")
             video_summary = fusion_service.build_video_summary(
                 video_data["duration_seconds"],
                 face_result,
                 speech_result,
                 video_data["notes"],
+                video_data["frame_count"],
             )
             face_emotion = fusion_service.build_face_emotion(face_result)
             speech_features = fusion_service.build_speech_features(speech_result)
             final_prediction = fusion_service.predict(face_emotion, speech_features)
+            self._update_task(task, "processing", "generating_advice", 88, "正在生成专家意见")
             expert_advice = await llm_service.generate_advice(
                 video_summary,
                 face_emotion,
                 speech_features,
                 final_prediction,
             )
+            self._update_task(task, "processing", "saving_report", 96, "正在保存分析报告")
             report = Report(
                 task_id=task_id,
                 video_summary=video_summary,
@@ -80,9 +97,9 @@ class TaskService:
                 expert_advice=expert_advice,
             )
             self._save_report(report)
-            task.status = "completed"
+            self._update_task(task, "completed", "completed", 100, "分析完成")
         except Exception as exc:
-            task.status = "failed"
+            self._update_task(task, "failed", task.stage or "failed", task.progress, "分析失败")
             task.error = str(exc)
 
     def get_task(self, task_id: str) -> Task | None:
@@ -92,7 +109,14 @@ class TaskService:
 
         report_path = self._report_path(task_id)
         if report_path.exists():
-            task = Task(task_id=task_id, status="completed", video_path=Path(""))
+            task = Task(
+                task_id=task_id,
+                status="completed",
+                video_path=Path(""),
+                stage="completed",
+                progress=100,
+                message="分析完成",
+            )
             self._tasks[task_id] = task
             return task
         return None
@@ -116,6 +140,12 @@ class TaskService:
         for path in (settings.uploads_dir, settings.frames_dir, settings.audio_dir, settings.reports_dir):
             path.mkdir(parents=True, exist_ok=True)
 
+    def _update_task(self, task: Task, status: str, stage: str, progress: int, message: str) -> None:
+        task.status = status
+        task.stage = stage
+        task.progress = max(0, min(progress, 100))
+        task.message = message
+        task.updated_at = datetime.now()
+
 
 task_service = TaskService()
-

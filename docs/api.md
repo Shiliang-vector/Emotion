@@ -30,7 +30,14 @@ Content-Type: multipart/form-data
 ```json
 {
   "task_id": "uuid",
-  "status": "completed"
+  "status": "queued",
+  "stage": "queued",
+  "progress": 5,
+  "message": "视频已上传，等待后台分析",
+  "error": null,
+  "created_at": "2026-06-08T21:30:00",
+  "updated_at": "2026-06-08T21:30:00",
+  "report_url": null
 }
 ```
 
@@ -46,9 +53,27 @@ GET /api/tasks/{task_id}
 {
   "task_id": "uuid",
   "status": "completed",
+  "stage": "completed",
+  "progress": 100,
+  "message": "分析完成",
+  "error": null,
+  "created_at": "2026-06-08T21:30:00",
+  "updated_at": "2026-06-08T21:32:00",
   "report_url": "/api/reports/uuid"
 }
 ```
+
+`stage` 可能值：
+
+- `queued`
+- `preparing_video`
+- `analyzing_face`
+- `analyzing_speech`
+- `fusing_features`
+- `generating_advice`
+- `saving_report`
+- `completed`
+- 失败时 `status` 为 `failed`，`stage` 保留失败发生前的处理阶段。
 
 ## 查询报告
 
@@ -57,4 +82,3 @@ GET /api/reports/{task_id}
 ```
 
 返回完整情绪分析报告。
-

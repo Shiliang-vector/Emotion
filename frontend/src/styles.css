@@ -25,7 +25,7 @@ input {
 }
 
 .workspace {
-  width: min(1180px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
 }
 
@@ -39,12 +39,13 @@ input {
 
 .topbar h1 {
   margin: 0;
-  font-size: clamp(26px, 4vw, 42px);
+  font-size: clamp(26px, 4vw, 40px);
   font-weight: 760;
   letter-spacing: 0;
 }
 
 .topbar p {
+  max-width: 760px;
   margin: 8px 0 0;
   color: #5d6677;
   line-height: 1.6;
@@ -67,18 +68,24 @@ input {
 .main-grid,
 .report-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(320px, 0.86fr) minmax(360px, 1.14fr);
   gap: 16px;
 }
 
 .report-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 16px;
 }
 
-.panel {
+.panel,
+.summary-metric,
+.empty-report {
   border: 1px solid #dce2ed;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.panel {
   padding: 18px;
 }
 
@@ -93,6 +100,13 @@ input {
 .panel-heading h2 {
   margin: 0;
   font-size: 18px;
+  letter-spacing: 0;
+}
+
+.panel h3 {
+  margin: 18px 0 10px;
+  color: #33405a;
+  font-size: 14px;
   letter-spacing: 0;
 }
 
@@ -114,6 +128,11 @@ input {
   cursor: pointer;
   padding: 16px;
   text-align: center;
+}
+
+.drop-zone span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .drop-zone input {
@@ -140,26 +159,112 @@ button:disabled {
 
 .error-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin-top: 14px;
   padding: 12px;
   border-radius: 8px;
   background: #fff1f0;
   color: #a02620;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.task-panel.failed {
+  border-color: #efb2ad;
+}
+
+.progress-block {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #24324a;
+}
+
+.progress-meta strong,
+.progress-meta span {
+  overflow-wrap: anywhere;
+}
+
+.progress-block p {
+  margin: 0;
+  color: #687386;
+  line-height: 1.5;
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e9edf5;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #1e6bff;
+  transition: width 0.2s ease;
+}
+
+.step-list {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.step-list li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-height: 54px;
+  padding: 8px 4px;
+  border: 1px solid #e2e7f0;
+  border-radius: 8px;
+  color: #758093;
+  font-size: 12px;
+  text-align: center;
+}
+
+.step-list li.done {
+  border-color: #b9dfd1;
+  background: #f0faf6;
+  color: #167456;
+}
+
+.step-list li.active {
+  border-color: #99b9ff;
+  background: #f4f7ff;
+  color: #1e5fd6;
+}
+
+.step-list li.failed {
+  border-color: #efb2ad;
+  background: #fff5f4;
+  color: #a02620;
 }
 
 .status-list,
-.feature-list {
+.feature-list,
+.compact-list {
   display: grid;
   gap: 12px;
   margin: 0;
 }
 
 .status-list div,
-.feature-list div {
+.feature-list div,
+.compact-list div {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 96px minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -180,15 +285,61 @@ dd {
   gap: 10px;
   min-height: 180px;
   margin-top: 16px;
-  border: 1px solid #dce2ed;
-  border-radius: 8px;
-  background: #ffffff;
+  padding: 18px;
   color: #667084;
+  text-align: center;
+}
+
+.report-layout {
+  margin-top: 16px;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-metric {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 14px;
+}
+
+.summary-metric svg {
+  color: #1e6bff;
+}
+
+.summary-metric div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary-metric span {
+  color: #687386;
+  font-size: 13px;
+}
+
+.summary-metric strong {
+  color: #19243a;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.prediction-panel {
+  display: grid;
+  align-content: start;
 }
 
 .prediction {
   display: grid;
   gap: 6px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f5f7fb;
 }
 
 .prediction strong {
@@ -201,16 +352,24 @@ dd {
   color: #5b6679;
 }
 
-.evidence-list {
+.prediction.risk-high {
+  background: #fff1f0;
+}
+
+.prediction.risk-medium {
+  background: #fff8e6;
+}
+
+.prediction.risk-low {
+  background: #f0faf6;
+}
+
+.evidence-list,
+.notes-panel ul {
   margin: 16px 0 0;
   padding-left: 18px;
   color: #33405a;
   line-height: 1.7;
-}
-
-.dominant {
-  margin: 0 0 14px;
-  color: #33405a;
 }
 
 .bars {
@@ -220,9 +379,18 @@ dd {
 
 .bar-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 48px;
+  grid-template-columns: 76px minmax(0, 1fr) 52px;
   align-items: center;
   gap: 10px;
+}
+
+.bar-row span {
+  color: #33405a;
+}
+
+.bar-row strong {
+  color: #253149;
+  text-align: right;
 }
 
 .bar-track {
@@ -238,7 +406,46 @@ dd {
   background: #21a67a;
 }
 
-.advice-panel {
+.speech-panel {
+  display: grid;
+  align-content: start;
+}
+
+.transcript {
+  margin-top: 18px;
+}
+
+.transcript p {
+  min-height: 84px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e2e7f0;
+  border-radius: 8px;
+  background: #f8faff;
+  color: #283349;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.acoustic-table dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.acoustic-table div {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid #e5eaf2;
+  border-radius: 8px;
+}
+
+.advice-panel,
+.notes-panel {
   grid-column: 1 / -1;
 }
 
@@ -247,6 +454,7 @@ dd {
   color: #283349;
   line-height: 1.8;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .spin {
@@ -259,15 +467,21 @@ dd {
   }
 }
 
+@media (max-width: 980px) {
+  .main-grid,
+  .report-grid,
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .step-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding: 16px;
-  }
-
-  .topbar,
-  .main-grid,
-  .report-grid {
-    grid-template-columns: 1fr;
   }
 
   .topbar {
@@ -278,5 +492,19 @@ dd {
     justify-content: flex-start;
     padding: 0 12px;
   }
-}
 
+  .step-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-list div,
+  .feature-list div,
+  .compact-list div,
+  .acoustic-table dl {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row {
+    grid-template-columns: 64px minmax(0, 1fr) 46px;
+  }
+}

@@ -8,6 +8,7 @@ class FusionService:
         face_result: dict,
         speech_result: dict,
         notes: list[str],
+        frame_count: int = 0,
     ) -> VideoSummary:
         extra_notes = list(notes)
         for result in (face_result, speech_result):
@@ -19,6 +20,9 @@ class FusionService:
             duration_seconds=duration_seconds,
             detected_faces=int(face_result.get("detected_faces", 0)),
             speech_detected=bool(speech_result.get("speech_detected", False)),
+            frame_count=frame_count,
+            analyzed_frames=int(face_result.get("analyzed_frames", 0)),
+            skipped_frames=int(face_result.get("skipped_frames", 0)),
             processing_notes=extra_notes,
         )
 
@@ -27,6 +31,8 @@ class FusionService:
             dominant=face_result.get("dominant", "unknown"),
             probabilities=face_result.get("probabilities", {"unknown": 1.0}),
             duration_ratio=face_result.get("duration_ratio", {"unknown": 1.0}),
+            analyzed_frames=int(face_result.get("analyzed_frames", 0)),
+            skipped_frames=int(face_result.get("skipped_frames", 0)),
         )
 
     def build_speech_features(self, speech_result: dict) -> SpeechFeatures:
@@ -36,6 +42,10 @@ class FusionService:
             speech_rate=speech_result.get("speech_rate", "unknown"),
             clarity=speech_result.get("clarity", "unknown"),
             semantic_emotion=speech_result.get("semantic_emotion", "unknown"),
+            duration_seconds=float(speech_result.get("duration_seconds", 0) or 0),
+            tags=speech_result.get("tags", []),
+            acoustic=speech_result.get("acoustic", {}),
+            processing_notes=speech_result.get("processing_notes", []),
         )
 
     def predict(self, face_emotion: FaceEmotion, speech_features: SpeechFeatures) -> FinalPrediction:
