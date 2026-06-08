@@ -1,0 +1,16 @@
+ARG PYTHON_IMAGE=docker.1ms.run/library/python:3.11-slim
+FROM ${PYTHON_IMAGE}
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    --trusted-host pypi.tuna.tsinghua.edu.cn \
+    -r requirements.txt
+
+COPY app ./app
+
+EXPOSE 8002
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]

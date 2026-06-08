@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.conda/
+
+# Node
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+
+# Runtime storage
+storage/uploads/*
+storage/frames/*
+storage/audio/*
+storage/reports/*
+!storage/uploads/.gitkeep
+!storage/frames/.gitkeep
+!storage/audio/.gitkeep
+!storage/reports/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

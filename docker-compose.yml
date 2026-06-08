@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-mini}
+      - DEEPFACE_URL=${DEEPFACE_URL:-http://deepface:8001}
+      - SENSEVOICE_URL=${SENSEVOICE_URL:-http://sensevoice:8002}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./emotion.db}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:5173}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - deepface
+      - sensevoice
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  deepface:
+    build:
+      context: ./model-services/deepface
+    ports:
+      - "8001:8001"
+
+  sensevoice:
+    build:
+      context: ./model-services/sensevoice
+    ports:
+      - "8002:8002"
