@@ -13,6 +13,7 @@ class FusionService:
         for result in (face_result, speech_result):
             if result.get("error"):
                 extra_notes.append(result["error"])
+            extra_notes.extend(result.get("processing_notes", []))
 
         return VideoSummary(
             duration_seconds=duration_seconds,
@@ -73,4 +74,3 @@ class FusionService:
 
 
 fusion_service = FusionService()
-

@@ -33,9 +33,15 @@ services:
       context: ./model-services/deepface
     ports:
       - "8001:8001"
+    volumes:
+      - ./storage:/app/storage
+      - deepface-cache:/root/.deepface
 
   sensevoice:
     build:
       context: ./model-services/sensevoice
     ports:
       - "8002:8002"
+
+volumes:
+  deepface-cache:

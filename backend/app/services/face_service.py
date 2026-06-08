@@ -13,7 +13,7 @@ class FaceService:
             "frame_count": frame_count,
         }
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
+            async with httpx.AsyncClient(timeout=300) as client:
                 response = await client.post(f"{settings.deepface_url}/analyze", json=payload)
                 response.raise_for_status()
                 return response.json()
@@ -28,4 +28,3 @@ class FaceService:
 
 
 face_service = FaceService()
-
