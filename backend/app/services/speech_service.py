@@ -13,7 +13,7 @@ class SpeechService:
             "duration_seconds": duration_seconds,
         }
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=600) as client:
                 response = await client.post(f"{settings.sensevoice_url}/analyze", json=payload)
                 response.raise_for_status()
                 return response.json()
@@ -30,4 +30,3 @@ class SpeechService:
 
 
 speech_service = SpeechService()
-

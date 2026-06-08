@@ -71,9 +71,11 @@ docker compose up --build
 
 ## 当前实现说明
 
-第一版代码先搭建端到端框架。`model-services/deepface` 已接入真实 DeepFace，用于分析抽帧后的人脸表情概率和持续时长比例。`model-services/sensevoice` 仍是可运行的占位服务，接口稳定，便于后续替换为真实 SenseVoice 推理逻辑。
+第一版代码先搭建端到端框架。`model-services/deepface` 已接入真实 DeepFace，用于分析抽帧后的人脸表情概率和持续时长比例。`model-services/sensevoice` 已接入 FunASR SenseVoiceSmall，用于语音转写、语音侧情绪标签解析和基础声学特征估计。
 
 首次运行 DeepFace 分析时，容器可能需要下载 DeepFace 情绪模型权重，速度取决于网络。Docker Compose 已配置 `deepface-cache` 卷缓存模型文件，后续运行会复用缓存。
+
+首次运行 SenseVoice 分析时，容器可能需要从 ModelScope 下载 `iic/SenseVoiceSmall` 和 VAD 模型。Docker Compose 已配置 `sensevoice-cache` 卷缓存模型文件，后续运行会复用缓存。
 
 LLM 专家意见使用 OpenAI 兼容接口。若未配置 `OPENAI_API_KEY`，系统会返回本地兜底建议，保证原型流程可以完整跑通。
 

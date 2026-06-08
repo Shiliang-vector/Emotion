@@ -42,6 +42,10 @@ services:
       context: ./model-services/sensevoice
     ports:
       - "8002:8002"
+    volumes:
+      - ./storage:/app/storage
+      - sensevoice-cache:/root/.cache/modelscope
 
 volumes:
   deepface-cache:
+  sensevoice-cache:
