@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -8,11 +8,22 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  Download,
   FileText,
   FileVideo,
   Loader2,
+  Link2,
   Mic2,
+  LogOut,
+  NotebookPen,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  TrendingUp,
   Upload,
+  UserRound,
+  Users,
   Volume2,
   XCircle,
 } from 'lucide-react';
@@ -66,16 +77,249 @@ const RISK_LABELS = {
   high: '高',
 };
 
+const AUTH_STORAGE_KEY = 'emotion-auth';
+
 function App() {
+  const [auth, setAuth] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [file, setFile] = useState(null);
   const [task, setTask] = useState(null);
   const [report, setReport] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [authorizedCounselors, setAuthorizedCounselors] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [counselorDraft, setCounselorDraft] = useState('');
+  const [counselorDraftAt, setCounselorDraftAt] = useState('');
+  const [bindEmail, setBindEmail] = useState('');
+  const [notes, setNotes] = useState([]);
+  const [noteContent, setNoteContent] = useState('');
+  const [trend, setTrend] = useState([]);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
 
+  const user = auth?.user || null;
+  const token = auth?.access_token || '';
   const isBusy = isUploading || task?.status === 'processing' || task?.status === 'queued';
   const statusLabel = STATUS_LABELS[task?.status] || task?.status || '等待上传';
   const stageLabel = STAGE_LABELS[task?.stage] || task?.message || '等待上传';
+
+  useEffect(() => {
+    if (!token) return;
+    apiFetch('/api/users/me')
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await readError(response));
+        return response.json();
+      })
+      .then((currentUser) => setAuth((current) => ({ ...current, user: currentUser })))
+      .catch(() => signOut());
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'client') {
+      loadMyTasks();
+      loadMyCounselors();
+    } else if (user.role === 'counselor') {
+      loadCounselorClients();
+    }
+  }, [user?.id, user?.role]);
+
+  async function apiFetch(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  }
+
+  async function signIn(payload) {
+    setError('');
+    const formData = new URLSearchParams();
+    formData.set('username', payload.email);
+    formData.set('password', payload.password);
+    const response = await fetch(`${API_BASE_URL}/api/auth/jwt/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const tokenData = await response.json();
+    const userResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    if (!userResponse.ok) {
+      throw new Error(await readError(userResponse));
+    }
+    const data = { ...tokenData, user: await userResponse.json() };
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+    setAuth(data);
+    setTask(null);
+    setReport(null);
+    setCounselorDraft('');
+  }
+
+  async function register(payload) {
+    setError('');
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    await signIn({ email: payload.email, password: payload.password });
+  }
+
+  function signOut() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAuth(null);
+    setTask(null);
+    setReport(null);
+    setHistory([]);
+    setClients([]);
+    setSelectedClient(null);
+    setCounselorDraft('');
+  }
+
+  async function loadMyTasks() {
+    setIsLoadingWorkspace(true);
+    try {
+      const response = await apiFetch('/api/me/tasks');
+      if (!response.ok) throw new Error(await readError(response));
+      setHistory(await response.json());
+    } catch (err) {
+      setError(err.message || '读取历史失败');
+    } finally {
+      setIsLoadingWorkspace(false);
+    }
+  }
+
+  async function loadMyCounselors() {
+    try {
+      const response = await apiFetch('/api/me/counselors');
+      if (!response.ok) throw new Error(await readError(response));
+      setAuthorizedCounselors(await response.json());
+    } catch (err) {
+      setError(err.message || '读取授权咨询师失败');
+    }
+  }
+
+  async function loadCounselorClients() {
+    setIsLoadingWorkspace(true);
+    try {
+      const response = await apiFetch('/api/counselor/clients');
+      if (!response.ok) throw new Error(await readError(response));
+      setClients(await response.json());
+    } catch (err) {
+      setError(err.message || '读取用户列表失败');
+    } finally {
+      setIsLoadingWorkspace(false);
+    }
+  }
+
+  async function loadClientHistory(client) {
+    setError('');
+    setCounselorDraft('');
+    setCounselorDraftAt('');
+    const response = await apiFetch(`/api/counselor/users/${client.id}/history`);
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    const historyData = await response.json();
+    setSelectedClient(historyData);
+    await loadClientNotes(historyData.user_id);
+    await loadClientTrend(historyData.user_id);
+  }
+
+  async function loadClientNotes(userId) {
+    const response = await apiFetch(`/api/counselor/users/${userId}/notes`);
+    if (response.ok) {
+      setNotes(await response.json());
+    }
+  }
+
+  async function loadClientTrend(userId) {
+    const response = await apiFetch(`/api/counselor/users/${userId}/trend`);
+    if (response.ok) {
+      const data = await response.json();
+      setTrend(data.points || []);
+    }
+  }
+
+  async function createBinding(event) {
+    event.preventDefault();
+    setError('');
+    const response = await apiFetch('/api/counselor/bindings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_email: bindEmail }),
+    });
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    setBindEmail('');
+    await loadCounselorClients();
+  }
+
+  async function deleteBinding(clientId) {
+    setError('');
+    const response = await apiFetch(`/api/counselor/bindings/${clientId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    setSelectedClient(null);
+    setNotes([]);
+    setTrend([]);
+    await loadCounselorClients();
+  }
+
+  async function createNote(event) {
+    event.preventDefault();
+    if (!selectedClient || !noteContent.trim()) return;
+    setError('');
+    const response = await apiFetch(`/api/counselor/users/${selectedClient.user_id}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: noteContent }),
+    });
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    setNoteContent('');
+    await loadClientNotes(selectedClient.user_id);
+  }
+
+  async function generateCounselorDraft() {
+    if (!selectedClient) return;
+    setError('');
+    setCounselorDraft('正在生成咨询师辅助建议...');
+    const response = await apiFetch(`/api/counselor/users/${selectedClient.user_id}/assistance-draft`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      setCounselorDraft('');
+      setError(await readError(response));
+      return;
+    }
+    const data = await response.json();
+    setCounselorDraft(data.assistance);
+    setCounselorDraftAt(data.generated_at || '');
+    if (selectedClient) {
+      await loadClientHistory({ id: selectedClient.user_id });
+    }
+  }
 
   async function uploadVideo(event) {
     event.preventDefault();
@@ -91,7 +335,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/videos/upload`, {
+      const uploadResponse = await apiFetch('/api/videos/upload', {
         method: 'POST',
         body: formData,
       });
@@ -102,6 +346,7 @@ function App() {
       const uploadData = await uploadResponse.json();
       setTask(uploadData);
       await pollTask(uploadData.task_id);
+      await loadMyTasks();
     } catch (err) {
       setError(err.message || '上传失败');
     } finally {
@@ -111,7 +356,7 @@ function App() {
 
   async function pollTask(taskId) {
     for (let attempt = 0; attempt < 180; attempt += 1) {
-      const taskResponse = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`);
+      const taskResponse = await apiFetch(`/api/tasks/${taskId}`);
       if (!taskResponse.ok) {
         throw new Error(await readError(taskResponse));
       }
@@ -120,7 +365,7 @@ function App() {
       setTask(taskData);
 
       if (taskData.status === 'completed') {
-        const reportResponse = await fetch(`${API_BASE_URL}${taskData.report_url}`);
+        const reportResponse = await apiFetch(taskData.report_url);
         if (!reportResponse.ok) {
           throw new Error(await readError(reportResponse));
         }
@@ -138,48 +383,399 @@ function App() {
     throw new Error('任务超时，请稍后查询结果');
   }
 
+  async function openReport(taskItem) {
+    setError('');
+    const response = await apiFetch(`/api/reports/${taskItem.task_id}`);
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    setTask(taskItem);
+    setReport(await response.json());
+  }
+
+  async function exportReport(format) {
+    if (!report?.task_id) return;
+    const response = await apiFetch(`/api/reports/${report.task_id}/export?format=${format}`);
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `emotion-report-${report.task_id}.${format === 'json' ? 'json' : 'txt'}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (!user) {
+    return (
+      <main className="app-shell">
+        <section className="workspace auth-workspace">
+          <header className="topbar">
+            <div>
+              <h1>多模态心理咨询辅助系统</h1>
+              <p>普通用户上传交流视频获得非诊断性建议，心理咨询师查看授权用户历史并生成辅助工作草稿。</p>
+            </div>
+          </header>
+          <AuthPanel onLogin={signIn} onRegister={register} error={error} setError={setError} />
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <section className="workspace">
         <header className="topbar">
           <div>
-            <h1>人脸识别心情判别系统</h1>
-            <p>上传交流视频后，系统会综合人脸表情、语音语义、声学特征和专家意见生成报告。</p>
+            <h1>多模态心理咨询辅助系统</h1>
+            <p>{user.role === 'client' ? '上传交流视频后，系统会给出谨慎、非诊断性的辅助建议。' : '查看已关联用户的分析历史，并生成供专业人员参考的辅助工作草稿。'}</p>
           </div>
-          <StatusPill busy={isBusy} status={statusLabel} />
+          <div className="session-actions">
+            <div className="user-chip">
+              {user.role === 'counselor' ? <ShieldCheck size={18} /> : <UserRound size={18} />}
+              <span>{user.display_name || user.email}</span>
+            </div>
+            <StatusPill busy={isBusy || isLoadingWorkspace} status={user.role === 'client' ? statusLabel : '咨询师视图'} />
+            <button className="icon-button" type="button" onClick={signOut} title="退出登录">
+              <LogOut size={18} />
+            </button>
+          </div>
         </header>
 
-        <div className="main-grid">
-          <section className="panel uploader">
-            <div className="panel-heading">
-              <FileVideo size={20} />
-              <h2>视频上传</h2>
-            </div>
-            <form onSubmit={uploadVideo}>
-              <label className="drop-zone">
-                <Upload size={28} />
-                <span>{file ? file.name : '选择交流视频文件'}</span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
-                />
-              </label>
-              {file ? <FileMeta file={file} /> : null}
-              <button type="submit" disabled={isBusy}>
-                {isBusy ? <Loader2 className="spin" size={18} /> : <Upload size={18} />}
-                <span>{isBusy ? '正在分析' : '开始分析'}</span>
-              </button>
-            </form>
-            {error ? <ErrorBanner message={error} /> : null}
-          </section>
+        {user.role === 'client' ? (
+          <ClientWorkspace
+            error={error}
+            file={file}
+            history={history}
+            counselors={authorizedCounselors}
+            isBusy={isBusy}
+            onFileChange={setFile}
+            onOpenReport={openReport}
+            onSubmit={uploadVideo}
+            stageLabel={stageLabel}
+            statusLabel={statusLabel}
+            task={task}
+          />
+        ) : (
+          <CounselorWorkspace
+            clients={clients}
+            bindEmail={bindEmail}
+            counselorDraft={counselorDraft}
+            counselorDraftAt={counselorDraftAt}
+            error={error}
+            noteContent={noteContent}
+            notes={notes}
+            onCreateBinding={createBinding}
+            onCreateNote={createNote}
+            onDeleteBinding={deleteBinding}
+            onGenerateDraft={generateCounselorDraft}
+            onLoadHistory={loadClientHistory}
+            onOpenReport={openReport}
+            onSetBindEmail={setBindEmail}
+            onSetNoteContent={setNoteContent}
+            selectedClient={selectedClient}
+            trend={trend}
+          />
+        )}
 
-          <TaskStatus task={task} statusLabel={statusLabel} stageLabel={stageLabel} />
-        </div>
-
-        {report ? <ReportView report={report} /> : <EmptyReport task={task} />}
+        {report ? <ReportView report={report} onExportReport={exportReport} /> : <EmptyReport task={task} />}
       </section>
     </main>
+  );
+}
+
+function AuthPanel({ onLogin, onRegister, error, setError }) {
+  const [mode, setMode] = useState('login');
+  const [form, setForm] = useState({
+    email: 'client@example.com',
+    password: 'client123',
+    role: 'client',
+    display_name: '',
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      if (mode === 'login') {
+        await onLogin({ email: form.email, password: form.password });
+      } else {
+        await onRegister(form);
+      }
+    } catch (err) {
+      setError(err.message || '登录失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function fillDemo(role) {
+    if (role === 'counselor') {
+      setForm((current) => ({ ...current, email: 'counselor@example.com', password: 'counselor123', role }));
+    } else {
+      setForm((current) => ({ ...current, email: 'client@example.com', password: 'client123', role }));
+    }
+  }
+
+  return (
+    <section className="panel auth-panel">
+      <div className="tabs">
+        <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>登录</button>
+        <button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>注册</button>
+      </div>
+      <div className="demo-buttons">
+        <button type="button" onClick={() => fillDemo('client')}>普通用户演示</button>
+        <button type="button" onClick={() => fillDemo('counselor')}>咨询师演示</button>
+      </div>
+      <form onSubmit={submit} className="auth-form">
+        <label>
+          <span>账号/邮箱</span>
+          <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        </label>
+        <label>
+          <span>密码</span>
+          <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+        </label>
+        {mode === 'register' ? (
+          <>
+            <label>
+              <span>角色</span>
+              <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
+                <option value="client">普通用户</option>
+                <option value="counselor">心理咨询师</option>
+              </select>
+            </label>
+            <label>
+              <span>显示名称</span>
+              <input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} />
+            </label>
+          </>
+        ) : null}
+        <button type="submit" disabled={busy}>
+          {busy ? <Loader2 className="spin" size={18} /> : <ShieldCheck size={18} />}
+          <span>{mode === 'login' ? '进入系统' : '创建账号'}</span>
+        </button>
+      </form>
+      {error ? <ErrorBanner message={error} /> : null}
+    </section>
+  );
+}
+
+function ClientWorkspace({ counselors, error, file, history, isBusy, onFileChange, onOpenReport, onSubmit, stageLabel, statusLabel, task }) {
+  return (
+    <div className="main-grid">
+      <section className="panel uploader">
+        <div className="panel-heading">
+          <FileVideo size={20} />
+          <h2>视频上传</h2>
+        </div>
+        <form onSubmit={onSubmit}>
+          <label className="drop-zone">
+            <Upload size={28} />
+            <span>{file ? file.name : '选择交流视频文件'}</span>
+            <input type="file" accept="video/*" onChange={(event) => onFileChange(event.target.files?.[0] || null)} />
+          </label>
+          {file ? <FileMeta file={file} /> : null}
+          <button type="submit" disabled={isBusy}>
+            {isBusy ? <Loader2 className="spin" size={18} /> : <Upload size={18} />}
+            <span>{isBusy ? '正在分析' : '开始分析'}</span>
+          </button>
+        </form>
+        {error ? <ErrorBanner message={error} /> : null}
+      </section>
+
+      <TaskStatus task={task} statusLabel={statusLabel} stageLabel={stageLabel} />
+      <HistoryPanel tasks={history} onOpenReport={onOpenReport} />
+      <section className="panel history-list">
+        <div className="panel-heading">
+          <ShieldCheck size={20} />
+          <h2>已授权咨询师</h2>
+        </div>
+        <div className="client-list">
+          {counselors.map((counselor) => (
+            <div className="list-row" key={counselor.id}>
+              <span>{counselor.display_name || counselor.email}</span>
+              <small>{counselor.email}</small>
+            </div>
+          ))}
+          {!counselors.length ? <p className="muted">暂无授权咨询师</p> : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CounselorWorkspace({
+  bindEmail,
+  clients,
+  counselorDraft,
+  counselorDraftAt,
+  error,
+  noteContent,
+  notes,
+  onCreateBinding,
+  onCreateNote,
+  onDeleteBinding,
+  onGenerateDraft,
+  onLoadHistory,
+  onOpenReport,
+  onSetBindEmail,
+  onSetNoteContent,
+  selectedClient,
+  trend,
+}) {
+  return (
+    <div className="main-grid counselor-grid">
+      <section className="panel">
+        <div className="panel-heading">
+          <Users size={20} />
+          <h2>关联用户</h2>
+        </div>
+        <form className="inline-form" onSubmit={onCreateBinding}>
+          <input
+            type="email"
+            value={bindEmail}
+            onChange={(event) => onSetBindEmail(event.target.value)}
+            placeholder="输入普通用户邮箱"
+          />
+          <button type="submit">
+            <Link2 size={18} />
+            <span>绑定</span>
+          </button>
+        </form>
+        <div className="client-list">
+          {clients.map((client) => (
+            <div className="client-row" key={client.id}>
+              <button type="button" onClick={() => onLoadHistory(client)}>
+                <span>{client.display_name || client.email}</span>
+                <small>
+                  {client.task_count} 次分析
+                  {client.latest_risk_level ? ` · ${RISK_LABELS[client.latest_risk_level] || client.latest_risk_level}风险` : ''}
+                </small>
+              </button>
+              <button className="icon-button" type="button" onClick={() => onDeleteBinding(client.id)} title="解除绑定">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          {!clients.length ? <p className="muted">暂无已关联用户</p> : null}
+        </div>
+        {error ? <ErrorBanner message={error} /> : null}
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <FileText size={20} />
+          <h2>{selectedClient ? `${selectedClient.display_name || selectedClient.email} 的历史` : '用户历史'}</h2>
+        </div>
+        {selectedClient ? (
+          <>
+            <HistoryPanel tasks={selectedClient.tasks} onOpenReport={onOpenReport} embedded />
+            <button type="button" onClick={onGenerateDraft} disabled={!selectedClient.tasks.length}>
+              <Sparkles size={18} />
+              <span>生成咨询师辅助建议</span>
+            </button>
+            {counselorDraft ? (
+              <div className="draft-box">
+                {counselorDraftAt ? <small>生成时间：{new Date(counselorDraftAt).toLocaleString()}</small> : null}
+                <p>{counselorDraft}</p>
+              </div>
+            ) : null}
+            <TrendPanel trend={trend} />
+            <NotesPanelForm
+              noteContent={noteContent}
+              notes={notes}
+              onCreateNote={onCreateNote}
+              onSetNoteContent={onSetNoteContent}
+            />
+          </>
+        ) : (
+          <p className="muted">选择左侧用户查看分析历史</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function HistoryPanel({ tasks = [], onOpenReport, embedded = false }) {
+  return (
+    <section className={embedded ? 'history-list embedded' : 'panel history-list'}>
+      {!embedded ? (
+        <div className="panel-heading">
+          <Clock3 size={20} />
+          <h2>分析历史</h2>
+        </div>
+      ) : null}
+      <div className="history-items">
+        {tasks.map((item) => (
+          <button key={item.task_id} type="button" onClick={() => item.report_url && onOpenReport(item)} disabled={!item.report_url}>
+            <span>
+              {item.created_at ? new Date(item.created_at).toLocaleString() : item.task_id}
+              {item.dominant_emotion ? ` · ${emotionLabel(item.dominant_emotion)}` : ''}
+            </span>
+            <strong>{item.risk_level ? `${RISK_LABELS[item.risk_level] || item.risk_level}风险` : STATUS_LABELS[item.status] || item.status}</strong>
+          </button>
+        ))}
+        {!tasks.length ? <p className="muted">暂无分析历史</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function TrendPanel({ trend = [] }) {
+  return (
+    <section className="sub-panel">
+      <div className="panel-heading compact-heading">
+        <TrendingUp size={18} />
+        <h3>趋势摘要</h3>
+      </div>
+      <div className="trend-list">
+        {trend.map((point) => (
+          <div key={point.task_id}>
+            <span>{point.created_at ? new Date(point.created_at).toLocaleDateString() : point.task_id}</span>
+            <strong>{point.emotion ? emotionLabel(point.emotion) : '未知'} · {point.risk_level ? `${RISK_LABELS[point.risk_level] || point.risk_level}风险` : '未评估'}</strong>
+          </div>
+        ))}
+        {!trend.length ? <p className="muted">暂无可展示趋势</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function NotesPanelForm({ noteContent, notes = [], onCreateNote, onSetNoteContent }) {
+  return (
+    <section className="sub-panel">
+      <div className="panel-heading compact-heading">
+        <NotebookPen size={18} />
+        <h3>咨询备注</h3>
+      </div>
+      <form className="note-form" onSubmit={onCreateNote}>
+        <textarea
+          value={noteContent}
+          onChange={(event) => onSetNoteContent(event.target.value)}
+          placeholder="记录咨询师人工复核、沟通切入点或下次咨询关注事项"
+        />
+        <button type="submit">
+          <Plus size={18} />
+          <span>添加备注</span>
+        </button>
+      </form>
+      <div className="note-list">
+        {notes.map((note) => (
+          <article key={note.id}>
+            <small>{new Date(note.created_at).toLocaleString()}</small>
+            <p>{note.content}</p>
+          </article>
+        ))}
+        {!notes.length ? <p className="muted">暂无咨询备注</p> : null}
+      </div>
+    </section>
   );
 }
 
@@ -295,11 +891,21 @@ function EmptyReport({ task }) {
   );
 }
 
-function ReportView({ report }) {
+function ReportView({ report, onExportReport }) {
   const prediction = report.final_prediction;
 
   return (
     <section className="report-layout">
+      <div className="report-actions">
+        <button type="button" onClick={() => onExportReport('json')}>
+          <Download size={18} />
+          <span>导出 JSON</span>
+        </button>
+        <button type="button" onClick={() => onExportReport('text')}>
+          <Download size={18} />
+          <span>导出文本</span>
+        </button>
+      </div>
       <section className="summary-strip">
         <SummaryMetric icon={Clock3} label="视频时长" value={`${report.video_summary.duration_seconds}s`} />
         <SummaryMetric icon={FileVideo} label="抽帧数量" value={report.video_summary.frame_count || 0} />

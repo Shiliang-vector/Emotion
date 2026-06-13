@@ -7,14 +7,16 @@ if (-not (Test-Path $envPath)) {
 }
 
 $npmCmd = Join-Path $envPath "npm.cmd"
-$nodeExe = Join-Path $envPath "node.exe"
+$originalPath = $env:PATH
+$env:PATH = "$envPath;$env:PATH"
 
 Push-Location frontend
 try {
     & $npmCmd config set registry https://registry.npmmirror.com
-    & $npmCmd install
-    & $nodeExe .\node_modules\vite\bin\vite.js build
+    & $npmCmd ci
+    & $npmCmd run build
 }
 finally {
+    $env:PATH = $originalPath
     Pop-Location
 }

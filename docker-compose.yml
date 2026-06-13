@@ -8,15 +8,20 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-mini}
       - DEEPFACE_URL=${DEEPFACE_URL:-http://deepface:8001}
       - SENSEVOICE_URL=${SENSEVOICE_URL:-http://sensevoice:8002}
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///./emotion.db}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://emotion:emotion@postgres:5432/emotion}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:-dev-only-change-this-secret-key-please}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "8000:8000"
     volumes:
       - ./storage:/app/storage
     depends_on:
-      - deepface
-      - sensevoice
+      postgres:
+        condition: service_healthy
+      deepface:
+        condition: service_started
+      sensevoice:
+        condition: service_started
 
   frontend:
     build:
@@ -26,7 +31,8 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
 
   deepface:
     build:
@@ -46,6 +52,23 @@ services:
       - ./storage:/app/storage
       - sensevoice-cache:/root/.cache/modelscope
 
+  postgres:
+    image: docker.1ms.run/library/postgres:16-alpine
+    environment:
+      - POSTGRES_DB=emotion
+      - POSTGRES_USER=emotion
+      - POSTGRES_PASSWORD=emotion
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emotion -d emotion"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
 volumes:
   deepface-cache:
   sensevoice-cache:
+  postgres-data:

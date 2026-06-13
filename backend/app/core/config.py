@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4.1-mini"
     deepface_url: str = "http://deepface:8001"
     sensevoice_url: str = "http://sensevoice:8002"
-    database_url: str = "sqlite:///./emotion.db"
+    database_url: str = "postgresql+asyncpg://emotion:emotion@postgres:5432/emotion"
+    auth_secret_key: str = "dev-only-change-this-secret-key-please"
+    access_token_expire_minutes: int = 60 * 24
     backend_cors_origins: str = "http://localhost:5173"
     storage_dir: Path = Path("storage")
 
@@ -38,4 +40,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
