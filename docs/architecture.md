@@ -4,7 +4,7 @@
 
 ## 服务职责
 
-- `frontend`：登录、角色视图、视频上传、任务状态轮询、历史和报告展示。
+- `frontend`：登录、站内导航、角色工作台、心理科普、项目说明、视频上传、任务状态轮询、历史和报告展示。
 - `backend`：基于 FastAPI 和 fastapi-users 的认证授权、任务编排、视频处理、特征融合、报告持久化、LLM 调用。
 - `deepface`：读取抽帧结果，使用真实 DeepFace 进行人脸检测、表情概率和持续时长分析。
 - `sensevoice`：读取后端提取的音频，使用 FunASR SenseVoiceSmall 进行语音转写、语音侧情绪标签解析，并计算基础声学特征。
@@ -16,6 +16,8 @@
 flowchart LR
     Client["普通用户"] --> Frontend["React + Vite 前端"]
     Counselor["心理咨询师"] --> Frontend
+    Visitor["访客/答辩观众"] --> Education["心理科普与项目说明"]
+    Education --> Frontend
     Frontend --> Auth["fastapi-users JWT 认证"]
     Frontend --> Backend["FastAPI 后端"]
     Backend --> Postgres["PostgreSQL + Alembic"]
@@ -46,7 +48,15 @@ flowchart LR
 
 - `client`：只能上传自己的视频、查看自己的任务和报告。
 - `counselor`：只能查看已关联普通用户的历史和报告，不能上传视频。
+- `心理科普` 和 `项目说明` 为前端静态展示页面，不提供诊断、自测或治疗建议。
 - 自动建议均为辅助、非诊断性内容，咨询师辅助草稿仅供专业人员参考。
+
+## 前端展示结构
+
+- `工作台`：登录后按角色展示普通用户上传分析流程或心理咨询师辅助工作流。
+- `心理科普`：展示常见心理问题的基础知识、求助提示和非诊断性声明。
+- `项目说明`：面向课程答辩说明系统架构、权限控制和论文/PPT资料入口。
+- 静态配图位于 `frontend/public/images/`，用于首页和科普页，避免答辩现场依赖外链图片。
 
 ## 工程边界
 

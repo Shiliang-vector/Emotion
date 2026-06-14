@@ -47,6 +47,9 @@ class Report(BaseModel):
     speech_features: SpeechFeatures
     final_prediction: FinalPrediction
     expert_advice: str
+    model_name: str | None = None
+    prompt_version: str | None = None
+    generated_at: str | None = None
 
 
 class TaskOut(BaseModel):

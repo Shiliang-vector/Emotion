@@ -4,19 +4,26 @@ import {
   Activity,
   AlertCircle,
   BarChart3,
+  BookOpen,
   Brain,
   CheckCircle2,
   Circle,
   Clock3,
+  CloudSun,
   Download,
   FileText,
   FileVideo,
+  HeartPulse,
+  Info,
+  LayoutDashboard,
   Loader2,
   Link2,
   Mic2,
   LogOut,
+  Moon,
   NotebookPen,
   Plus,
+  Repeat2,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -25,6 +32,7 @@ import {
   UserRound,
   Users,
   Volume2,
+  Wind,
   XCircle,
 } from 'lucide-react';
 import './styles.css';
@@ -78,6 +86,72 @@ const RISK_LABELS = {
 };
 
 const AUTH_STORAGE_KEY = 'emotion-auth';
+const HERO_IMAGE = '/images/hero-counseling.png';
+const EDUCATION_IMAGE = '/images/education-mental-health.png';
+
+const VIEW_ITEMS = [
+  { id: 'workspace', label: '工作台', icon: LayoutDashboard },
+  { id: 'education', label: '心理科普', icon: BookOpen },
+  { id: 'about', label: '项目说明', icon: Info },
+];
+
+const EDUCATION_TOPICS = [
+  {
+    title: '抑郁相关问题',
+    icon: CloudSun,
+    summary: '持续低落、兴趣下降和精力不足可能影响学习、工作与人际互动。',
+    signs: ['持续情绪低落或空虚感', '兴趣减退、疲惫感增加', '睡眠、食欲或注意力明显变化'],
+    impact: '可能造成效率下降、社交退缩、自我评价降低，并加重压力循环。',
+    help: '建议记录情绪变化和生活事件，必要时联系心理咨询师或精神科医生进行专业评估。',
+  },
+  {
+    title: '焦虑相关问题',
+    icon: Wind,
+    summary: '焦虑常表现为过度担心、紧张不安，也可能伴随心慌、出汗或呼吸急促。',
+    signs: ['对未来事件反复担忧', '身体紧绷、心跳加快', '回避考试、社交或重要任务'],
+    impact: '可能影响决策、睡眠和任务完成，使个体更难从压力情境中恢复。',
+    help: '可先尝试规律作息、呼吸放松和任务拆分；若持续影响生活，应寻求专业帮助。',
+  },
+  {
+    title: '睡眠问题',
+    icon: Moon,
+    summary: '入睡困难、早醒、睡眠浅或昼夜节律紊乱会显著影响情绪调节能力。',
+    signs: ['难以入睡或反复醒来', '白天困倦、注意力下降', '睡前长期使用电子设备或反复思考压力事件'],
+    impact: '长期睡眠不足会放大焦虑、低落和易怒感，并降低学习与工作效率。',
+    help: '建议建立固定作息、减少睡前刺激；若严重失眠持续存在，应咨询专业人员。',
+  },
+  {
+    title: '压力与适应问题',
+    icon: Activity,
+    summary: '学业、工作、人际或家庭变化都可能带来适应压力。',
+    signs: ['容易烦躁或疲惫', '对任务失去控制感', '身体不适但难以找到明确原因'],
+    impact: '压力长期累积可能影响情绪稳定、沟通质量和问题解决能力。',
+    help: '可以梳理压力源、区分可控与不可控事项，并向可信任的人或咨询师寻求支持。',
+  },
+  {
+    title: '创伤后应激相关问题',
+    icon: ShieldCheck,
+    summary: '经历强烈威胁或冲击事件后，个体可能出现反复回想、警觉升高或回避。',
+    signs: ['反复想起相关画面或梦境', '对相似场景明显回避', '容易惊跳、警觉或情绪波动'],
+    impact: '可能影响安全感、人际关系和日常功能，需要谨慎、稳定和专业的支持。',
+    help: '不要强迫自己快速遗忘或独自处理；若症状明显，应尽快联系创伤知情的专业人员。',
+  },
+  {
+    title: '强迫相关问题',
+    icon: Repeat2,
+    summary: '反复出现的想法或行为如果难以控制，并占用大量时间，可能带来明显困扰。',
+    signs: ['反复检查、清洗或确认', '明知不必要却难以停止', '因仪式化行为影响学习、工作或生活'],
+    impact: '可能使个体陷入短暂缓解与再次担忧的循环，逐渐扩大生活限制。',
+    help: '建议记录触发情境和耗时程度，避免简单责备自己，并寻求专业评估与干预建议。',
+  },
+];
+
+const URGENT_HELP_ITEMS = [
+  '出现自伤或伤人想法，或担心自己无法保持安全。',
+  '连续严重失眠、进食明显受影响，且已经影响基本生活。',
+  '情绪或行为变化快速加重，身边人也明显感到担忧。',
+  '学习、工作、人际或自我照护功能受到明显损害。',
+];
 
 function App() {
   const [auth, setAuth] = useState(() => {
@@ -103,6 +177,7 @@ function App() {
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
+  const [activeView, setActiveView] = useState('workspace');
 
   const user = auth?.user || null;
   const token = auth?.access_token || '';
@@ -410,16 +485,50 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
+  const viewTitle = activeView === 'education' ? '心理科普' : activeView === 'about' ? '项目说明' : '工作台';
+
+  if (activeView === 'education') {
+    return (
+      <main className="app-shell">
+        <section className="workspace">
+          <SiteHeader
+            activeView={activeView}
+            onChangeView={setActiveView}
+            user={user}
+            onSignOut={signOut}
+            status={user?.role === 'client' ? statusLabel : user ? '咨询师视图' : viewTitle}
+            busy={isBusy || isLoadingWorkspace}
+          />
+          <EducationPage />
+        </section>
+      </main>
+    );
+  }
+
+  if (activeView === 'about') {
+    return (
+      <main className="app-shell">
+        <section className="workspace">
+          <SiteHeader
+            activeView={activeView}
+            onChangeView={setActiveView}
+            user={user}
+            onSignOut={signOut}
+            status={user?.role === 'client' ? statusLabel : user ? '咨询师视图' : viewTitle}
+            busy={isBusy || isLoadingWorkspace}
+          />
+          <AboutPage />
+        </section>
+      </main>
+    );
+  }
+
   if (!user) {
     return (
       <main className="app-shell">
-        <section className="workspace auth-workspace">
-          <header className="topbar">
-            <div>
-              <h1>多模态心理咨询辅助系统</h1>
-              <p>普通用户上传交流视频获得非诊断性建议，心理咨询师查看授权用户历史并生成辅助工作草稿。</p>
-            </div>
-          </header>
+        <section className="workspace">
+          <SiteHeader activeView={activeView} onChangeView={setActiveView} status="未登录" />
+          <HeroSection />
           <AuthPanel onLogin={signIn} onRegister={register} error={error} setError={setError} />
         </section>
       </main>
@@ -429,22 +538,15 @@ function App() {
   return (
     <main className="app-shell">
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <h1>多模态心理咨询辅助系统</h1>
-            <p>{user.role === 'client' ? '上传交流视频后，系统会给出谨慎、非诊断性的辅助建议。' : '查看已关联用户的分析历史，并生成供专业人员参考的辅助工作草稿。'}</p>
-          </div>
-          <div className="session-actions">
-            <div className="user-chip">
-              {user.role === 'counselor' ? <ShieldCheck size={18} /> : <UserRound size={18} />}
-              <span>{user.display_name || user.email}</span>
-            </div>
-            <StatusPill busy={isBusy || isLoadingWorkspace} status={user.role === 'client' ? statusLabel : '咨询师视图'} />
-            <button className="icon-button" type="button" onClick={signOut} title="退出登录">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </header>
+        <SiteHeader
+          activeView={activeView}
+          onChangeView={setActiveView}
+          user={user}
+          onSignOut={signOut}
+          status={user.role === 'client' ? statusLabel : '咨询师视图'}
+          busy={isBusy || isLoadingWorkspace}
+        />
+        <WorkspaceIntro user={user} history={history} clients={clients} task={task} />
 
         {user.role === 'client' ? (
           <ClientWorkspace
@@ -485,6 +587,219 @@ function App() {
         {report ? <ReportView report={report} onExportReport={exportReport} /> : <EmptyReport task={task} />}
       </section>
     </main>
+  );
+}
+
+function SiteHeader({ activeView = 'workspace', onChangeView, user, onSignOut, status, busy = false }) {
+  return (
+    <header className="site-header">
+      <button className="brand-lockup" type="button" onClick={() => onChangeView?.('workspace')}>
+        <span className="brand-mark"><Brain size={22} /></span>
+        <span>
+          <strong>MindScope</strong>
+          <small>多模态心理咨询辅助系统</small>
+        </span>
+      </button>
+      <nav className="site-nav" aria-label="站内导航">
+        {VIEW_ITEMS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={activeView === item.id ? 'active' : ''}
+              onClick={() => onChangeView?.(item.id)}
+            >
+              <Icon size={17} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="session-actions">
+        {user ? (
+          <div className="user-chip">
+            {user.role === 'counselor' ? <ShieldCheck size={18} /> : <UserRound size={18} />}
+            <span>{user.display_name || user.email}</span>
+          </div>
+        ) : null}
+        <StatusPill busy={busy} status={status || '就绪'} />
+        {user ? (
+          <button className="icon-button" type="button" onClick={onSignOut} title="退出登录">
+            <LogOut size={18} />
+          </button>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function HeroSection() {
+  return (
+    <section className="hero-section">
+      <div className="hero-copy">
+        <span className="eyebrow"><HeartPulse size={16} /> 课程设计原型</span>
+        <h1>多模态心理咨询辅助系统</h1>
+        <p>
+          系统结合视频表情、语音转写、声学特征和专家系统建议，为普通用户提供非诊断性反馈，
+          并为心理咨询师整理可复核的用户历史与辅助工作草稿。
+        </p>
+        <div className="hero-points">
+          <span><FileVideo size={17} /> 视频上传分析</span>
+          <span><Users size={17} /> 咨询师授权查看</span>
+          <span><ShieldCheck size={17} /> 非诊断性边界</span>
+        </div>
+      </div>
+      <img src={HERO_IMAGE} alt="心理咨询辅助系统主视觉" />
+    </section>
+  );
+}
+
+function WorkspaceIntro({ user, history = [], clients = [], task }) {
+  const isClient = user.role === 'client';
+  const completed = history.filter((item) => item.status === 'completed').length;
+  const failed = history.filter((item) => item.status === 'failed').length;
+  const summaryItems = isClient
+    ? [
+        { label: '历史任务', value: history.length, icon: Clock3 },
+        { label: '已完成报告', value: completed, icon: FileText },
+        { label: '失败任务', value: failed, icon: AlertCircle },
+      ]
+    : [
+        { label: '关联用户', value: clients.length, icon: Users },
+        { label: '累计分析', value: clients.reduce((sum, item) => sum + (item.task_count || 0), 0), icon: BarChart3 },
+        { label: '当前视图', value: '专业辅助', icon: ShieldCheck },
+      ];
+
+  return (
+    <section className="workspace-intro">
+      <div>
+        <span className="eyebrow">{isClient ? '普通用户工作台' : '心理咨询师工作台'}</span>
+        <h1>{isClient ? '上传交流视频，获取可复核的情绪分析报告' : '查看授权用户历史，生成咨询辅助草稿'}</h1>
+        <p>
+          {isClient
+            ? '系统会展示处理阶段、主情绪、风险等级和专家建议。结果仅作心理健康沟通参考。'
+            : '咨询师只能访问已绑定用户的历史数据，并可记录人工备注，最终判断仍由专业人员负责。'}
+        </p>
+      </div>
+      <div className="stat-strip">
+        {summaryItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <article key={item.label}>
+              <Icon size={18} />
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </article>
+          );
+        })}
+      </div>
+      {task?.status === 'failed' ? (
+        <div className="retry-hint">
+          <AlertCircle size={18} />
+          <span>最近任务失败：{task.error || task.message || '请检查视频格式和模型服务状态后重新上传。'}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function EducationPage() {
+  return (
+    <section className="education-page">
+      <div className="education-hero">
+        <div>
+          <span className="eyebrow"><BookOpen size={16} /> 心理健康科普</span>
+          <h1>常见心理问题的基础认识</h1>
+          <p>
+            本页用于课程展示和用户教育，帮助理解常见心理困扰的表现与求助方式。
+            内容不构成诊断、治疗建议或危机干预方案。
+          </p>
+        </div>
+        <img src={EDUCATION_IMAGE} alt="心理健康科普插图" />
+      </div>
+
+      <section className="notice-band">
+        <ShieldCheck size={22} />
+        <div>
+          <strong>非诊断性声明</strong>
+          <p>科普内容只用于心理健康教育。若出现持续痛苦、功能受损或安全风险，应联系专业人员或当地紧急服务。</p>
+        </div>
+      </section>
+
+      <div className="topic-grid">
+        {EDUCATION_TOPICS.map((topic) => (
+          <EducationCard key={topic.title} topic={topic} />
+        ))}
+      </div>
+
+      <section className="urgent-panel">
+        <div className="panel-heading">
+          <AlertCircle size={20} />
+          <h2>何时应尽快求助</h2>
+        </div>
+        <ul>
+          {URGENT_HELP_ITEMS.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p>如果情况紧急，请优先联系当地紧急服务、医院急诊或可信任的身边人，系统输出不能替代即时帮助。</p>
+      </section>
+    </section>
+  );
+}
+
+function EducationCard({ topic }) {
+  const Icon = topic.icon;
+  return (
+    <article className="education-card">
+      <div className="topic-icon"><Icon size={22} /></div>
+      <h2>{topic.title}</h2>
+      <p>{topic.summary}</p>
+      <h3>常见表现</h3>
+      <ul>
+        {topic.signs.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      <h3>可能影响</h3>
+      <p>{topic.impact}</p>
+      <h3>建议求助方式</h3>
+      <p>{topic.help}</p>
+      <small>系统边界：本卡片用于科普，不用于自我诊断或替代专业评估。</small>
+    </article>
+  );
+}
+
+function AboutPage() {
+  return (
+    <section className="about-page">
+      <div className="about-header">
+        <span className="eyebrow"><Info size={16} /> 项目说明</span>
+        <h1>面向课程设计的多模态心理咨询辅助原型</h1>
+        <p>
+          项目采用前后端分离、模型服务解耦和数据库持久化架构，重点展示多模态数据处理、
+          角色权限控制、报告可追溯和咨询师辅助工作流。
+        </p>
+      </div>
+      <div className="about-grid">
+        <article>
+          <Brain size={24} />
+          <h2>多模态分析</h2>
+          <p>从视频中抽帧和提取音频，结合 DeepFace 表情分析、SenseVoice 语音转写与声学特征，再生成综合报告。</p>
+        </article>
+        <article>
+          <ShieldCheck size={24} />
+          <h2>角色与权限</h2>
+          <p>普通用户只能查看自己的历史；心理咨询师只能查看已绑定用户，并可生成辅助建议和人工备注。</p>
+        </article>
+        <article>
+          <FileText size={24} />
+          <h2>论文与答辩资料</h2>
+          <p>README 与 docs 中保留系统架构、API、演示脚本、小论文写作指南和 PPT 大纲，便于组员接手。</p>
+        </article>
+      </div>
+    </section>
   );
 }
 
@@ -581,7 +896,13 @@ function ClientWorkspace({ counselors, error, file, history, isBusy, onFileChang
             <span>{file ? file.name : '选择交流视频文件'}</span>
             <input type="file" accept="video/*" onChange={(event) => onFileChange(event.target.files?.[0] || null)} />
           </label>
-          {file ? <FileMeta file={file} /> : null}
+        {file ? <FileMeta file={file} /> : null}
+          {task?.status === 'failed' ? (
+            <div className="retry-card">
+              <AlertCircle size={18} />
+              <span>上次分析失败，可重新选择视频后再次上传。</span>
+            </div>
+          ) : null}
           <button type="submit" disabled={isBusy}>
             {isBusy ? <Loader2 className="spin" size={18} /> : <Upload size={18} />}
             <span>{isBusy ? '正在分析' : '开始分析'}</span>
@@ -657,6 +978,7 @@ function CounselorWorkspace({
                 <small>
                   {client.task_count} 次分析
                   {client.latest_risk_level ? ` · ${RISK_LABELS[client.latest_risk_level] || client.latest_risk_level}风险` : ''}
+                  {client.latest_task_at ? ` · ${new Date(client.latest_task_at).toLocaleDateString()}` : ''}
                 </small>
               </button>
               <button className="icon-button" type="button" onClick={() => onDeleteBinding(client.id)} title="解除绑定">
@@ -714,10 +1036,11 @@ function HistoryPanel({ tasks = [], onOpenReport, embedded = false }) {
       ) : null}
       <div className="history-items">
         {tasks.map((item) => (
-          <button key={item.task_id} type="button" onClick={() => item.report_url && onOpenReport(item)} disabled={!item.report_url}>
+          <button key={item.task_id} type="button" className={item.status === 'failed' ? 'failed-row' : ''} onClick={() => item.report_url && onOpenReport(item)} disabled={!item.report_url}>
             <span>
               {item.created_at ? new Date(item.created_at).toLocaleString() : item.task_id}
               {item.dominant_emotion ? ` · ${emotionLabel(item.dominant_emotion)}` : ''}
+              {item.error ? ` · ${item.error}` : ''}
             </span>
             <strong>{item.risk_level ? `${RISK_LABELS[item.risk_level] || item.risk_level}风险` : STATUS_LABELS[item.status] || item.status}</strong>
           </button>
@@ -929,6 +1252,10 @@ function ReportView({ report, onExportReport }) {
               <li key={item}>{item}</li>
             ))}
           </ul>
+          <div className="risk-rationale">
+            <strong>风险依据</strong>
+            <p>{riskRationale(prediction)}</p>
+          </div>
         </article>
 
         <article className="panel">
@@ -992,7 +1319,16 @@ function ReportView({ report, onExportReport }) {
             <FileText size={20} />
             <h2>专家意见</h2>
           </div>
+          <div className="report-meta">
+            <span>模型：{report.model_name || '本地兜底或未记录'}</span>
+            <span>Prompt：{report.prompt_version || '未记录'}</span>
+            <span>生成时间：{report.generated_at ? new Date(report.generated_at).toLocaleString() : '未记录'}</span>
+          </div>
           <p>{report.expert_advice}</p>
+          <div className="ethics-note">
+            <ShieldCheck size={18} />
+            <span>本报告仅供心理健康沟通和专业复核参考，不能替代诊断、治疗或危机干预。</span>
+          </div>
         </article>
 
         <NotesPanel notes={report.video_summary.processing_notes} />
@@ -1114,6 +1450,13 @@ function formatBytes(bytes) {
 
 function formatTags(tags = []) {
   return tags.length ? tags.join(', ') : '-';
+}
+
+function riskRationale(prediction) {
+  const risk = RISK_LABELS[prediction.risk_level] || prediction.risk_level || '未知';
+  const confidence = formatPercent(prediction.confidence);
+  const evidence = prediction.evidence?.length ? `，并结合 ${prediction.evidence.length} 条可见证据` : '';
+  return `系统根据主情绪“${emotionLabel(prediction.emotion)}”、置信度 ${confidence}${evidence} 给出${risk}风险提示。该等级用于提示复核优先级，不等同于医学诊断。`;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

@@ -101,6 +101,9 @@ class TaskService:
                     speech_features=speech_features,
                     final_prediction=final_prediction,
                     expert_advice=expert_advice,
+                    model_name=settings.openai_model,
+                    prompt_version="v1",
+                    generated_at=datetime.utcnow().isoformat(),
                 )
                 await self._save_report(db, report)
                 await self._update_task(db, task, "completed", "completed", 100, "分析完成")
@@ -113,7 +116,11 @@ class TaskService:
     async def get_report(self, db: AsyncSession, task_id: str) -> Report | None:
         record = await db.get(ReportRecord, task_id)
         if record:
-            return Report.model_validate(json.loads(record.report_json))
+            report = Report.model_validate(json.loads(record.report_json))
+            report.model_name = report.model_name or record.model_name
+            report.prompt_version = report.prompt_version or record.prompt_version
+            report.generated_at = report.generated_at or (record.created_at.isoformat() if record.created_at else None)
+            return report
         report_path = self._report_path(task_id)
         if not report_path.exists():
             return None
