@@ -1,9 +1,13 @@
+import asyncio
+import json
 import os
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 test_db_path = Path("storage/test_emotion.db")
 if test_db_path.exists():
@@ -12,6 +16,9 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{test_db_path.as_posix()}"
 os.environ["AUTH_SECRET_KEY"] = "test-secret-for-fastapi-users-jwt-32"
 
 from app.main import app
+from app.core.database import AsyncSessionLocal
+from app.models.task import AnalysisTask, ReportRecord, User
+from app.schemas.report import FaceEmotion, FinalPrediction, Report, SpeechFeatures, VideoSummary
 
 
 @pytest.fixture(scope="module")
@@ -116,6 +123,79 @@ def register_user(client, role: str) -> tuple[str, dict[str, str], int]:
     return email, auth_headers(client, email, "client123"), user_id
 
 
+def create_completed_task_for_user(email: str) -> str:
+    async def _create() -> str:
+        async with AsyncSessionLocal() as db:
+            user = await db.scalar(select(User).where(User.email == email))
+            assert user is not None
+            task_id = f"test-{uuid.uuid4().hex[:10]}"
+            now = datetime.utcnow()
+            report = Report(
+                task_id=task_id,
+                video_summary=VideoSummary(
+                    duration_seconds=18.0,
+                    detected_faces=1,
+                    speech_detected=True,
+                    frame_count=12,
+                    analyzed_frames=10,
+                    skipped_frames=2,
+                    processing_notes=["测试生成的模拟报告，不包含真实隐私视频"],
+                ),
+                face_emotion=FaceEmotion(
+                    dominant="sad",
+                    probabilities={"sad": 0.62, "neutral": 0.28, "happy": 0.1},
+                    duration_ratio={"sad": 0.58, "neutral": 0.32, "happy": 0.1},
+                    analyzed_frames=10,
+                    skipped_frames=2,
+                ),
+                speech_features=SpeechFeatures(
+                    transcript="最近压力比较大，睡眠也不太稳定。",
+                    pitch_summary="基频略低，波动较小",
+                    speech_rate="语速偏慢",
+                    clarity="语音清晰",
+                    semantic_emotion="sad",
+                    duration_seconds=18.0,
+                    tags=["压力", "睡眠"],
+                    acoustic={"rms": 0.05, "voiced_ratio": 0.62},
+                ),
+                final_prediction=FinalPrediction(
+                    emotion="sad",
+                    confidence=0.74,
+                    risk_level="medium",
+                    evidence=["面部悲伤概率较高", "语音内容提到压力和睡眠"],
+                ),
+                expert_advice="建议记录近期压力源和睡眠变化，必要时寻求专业支持。",
+                model_name="test-model",
+                prompt_version="v1",
+                generated_at=now.isoformat(),
+            )
+            task = AnalysisTask(
+                task_id=task_id,
+                user_id=user.id,
+                status="completed",
+                stage="completed",
+                progress=100,
+                message="测试报告已生成",
+                video_path=f"storage/uploads/{task_id}.mp4",
+                created_at=now,
+                updated_at=now,
+            )
+            record = ReportRecord(
+                task_id=task_id,
+                report_json=json.dumps(report.model_dump(), ensure_ascii=False),
+                expert_advice=report.expert_advice,
+                model_name=report.model_name,
+                prompt_version=report.prompt_version,
+                created_at=now,
+            )
+            db.add(task)
+            db.add(record)
+            await db.commit()
+            return task_id
+
+    return asyncio.run(_create())
+
+
 def test_counselor_binding_lifecycle_and_authorized_counselors(client):
     client_email, client_headers, client_id = register_user(client, "client")
     _, counselor_headers, _ = register_user(client, "counselor")
@@ -173,3 +253,37 @@ def test_counselor_notes_and_empty_trend_require_binding(client):
     trend_response = client.get(f"/api/counselor/users/{client_id}/trend", headers=counselor_headers)
     assert trend_response.status_code == 200
     assert trend_response.json() == {"user_id": client_id, "points": []}
+
+
+def test_client_can_delete_own_completed_task_and_report(client):
+    email, headers, _ = register_user(client, "client")
+    task_id = create_completed_task_for_user(email)
+
+    report_before = client.get(f"/api/reports/{task_id}", headers=headers)
+    assert report_before.status_code == 200
+
+    delete_response = client.delete(f"/api/me/tasks/{task_id}", headers=headers)
+    assert delete_response.status_code == 204
+
+    report_after = client.get(f"/api/reports/{task_id}", headers=headers)
+    assert report_after.status_code == 404
+
+
+def test_counselor_cannot_delete_client_task(client):
+    client_email, _, _ = register_user(client, "client")
+    _, counselor_headers, _ = register_user(client, "counselor")
+    task_id = create_completed_task_for_user(client_email)
+
+    response = client.delete(f"/api/me/tasks/{task_id}", headers=counselor_headers)
+
+    assert response.status_code == 403
+
+
+def test_report_export_denies_unowned_task(client):
+    owner_email, _, _ = register_user(client, "client")
+    _, other_headers, _ = register_user(client, "client")
+    task_id = create_completed_task_for_user(owner_email)
+
+    response = client.get(f"/api/reports/{task_id}/export?format=json", headers=other_headers)
+
+    assert response.status_code == 403

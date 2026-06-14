@@ -35,6 +35,8 @@
 
 建议截图：`docs/architecture.md` 中的 Mermaid 流程图。
 
+建议用图：系统架构图、业务流程图、数据库关系图。
+
 ## 5. 普通用户流程
 
 - 登录。
@@ -64,6 +66,7 @@
 - 证据列表。
 - 模型名、prompt 版本和生成时间。
 - 非诊断性声明。
+- 截图模式集中展示综合结论、模型信息和风险依据。
 
 建议截图：报告详情页。
 
@@ -102,6 +105,8 @@
 - `docker compose config --quiet` 配置验证。
 - Docker Compose 启动五个服务。
 - 使用演示账号跑完整流程。
+- `scripts/check_demo.ps1` 可用于答辩前自动检查服务和演示账号。
+- `scripts/seed_demo_data.ps1` 可生成稳定演示样例。
 
 建议截图：Docker Compose 服务状态。
 

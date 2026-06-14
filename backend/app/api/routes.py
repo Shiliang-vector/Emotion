@@ -162,6 +162,20 @@ async def my_tasks(
     return [await _serialize_task(db, task) for task in await task_service.list_user_tasks(db, user)]
 
 
+@router.delete("/me/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_task(
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_client),
+) -> None:
+    try:
+        deleted = await task_service.delete_user_task(db, user, task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+
 @router.get("/me/counselors", response_model=list[CounselorOut])
 async def my_counselors(
     db: AsyncSession = Depends(get_db),

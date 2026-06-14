@@ -127,8 +127,28 @@ LLM 专家意见使用 OpenAI 兼容接口。若未配置 `OPENAI_API_KEY`，系
 - `docs/paper-guide.md`：小论文写作指南，包含摘要、背景、系统设计、技术路线、测试、伦理边界、局限性和未来工作。
 - `docs/ppt-outline.md`：PPT 页面大纲、每页讲解重点和截图建议。
 - `docs/demo-checklist.md`：答辩前演示验收清单、启动命令、演示账号、截图清单和常见问题。
+- `docs/experiment-results.md`：实验与结果样例，可直接用于小论文实验章节。
+- `docs/prompt-versioning.md`：prompt 版本、模型名和输出可追溯说明。
 - `docs/architecture.md`：系统架构、服务职责、数据流和权限边界。
 - `docs/api.md`：认证、上传、报告、咨询师和导出接口说明。
+
+## 演示样例数据和自检
+
+答辩前可以先生成演示样例数据，避免完全依赖现场上传视频：
+
+```powershell
+.\scripts\seed_demo_data.ps1
+```
+
+该脚本会给演示普通用户生成三条模拟历史报告、趋势点和一条咨询师备注。样例数据仅用于课程展示，不包含真实隐私视频。
+
+演示前可运行自检脚本：
+
+```powershell
+.\scripts\check_demo.ps1
+```
+
+脚本会检查 Docker 服务、后端健康接口、前端访问和演示账号登录。
 
 ## 课程演示流程
 
@@ -140,6 +160,15 @@ LLM 专家意见使用 OpenAI 兼容接口。若未配置 `OPENAI_API_KEY`，系
 6. 导出 JSON 或文本报告，用于说明系统可追溯和可复核。
 7. 退出后使用 `counselor@example.com / counselor123` 登录心理咨询师。
 8. 在“关联用户”中查看普通用户历史，生成咨询师辅助建议，添加人工备注，展示趋势摘要。
+
+## 文件治理与隐私说明
+
+- 上传视频保存在 `storage/uploads/`。
+- 抽帧结果保存在 `storage/frames/{task_id}/`。
+- 提取音频保存在 `storage/audio/{task_id}.wav`。
+- 报告 JSON 兼容文件保存在 `storage/reports/{task_id}.json`，数据库中也会保存报告记录。
+- 这些运行时文件不应提交到仓库。
+- 普通用户可以删除自己的已完成或失败任务，系统会同步删除数据库记录和对应本地运行文件；处理中的任务需要等待完成或失败后再删除。
 
 ## 非诊断性声明
 

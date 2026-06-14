@@ -151,6 +151,13 @@ Authorization: Bearer <client token>
 
 返回当前普通用户已授权的心理咨询师列表。
 
+```http
+DELETE /api/me/tasks/{task_id}
+Authorization: Bearer <client token>
+```
+
+删除当前普通用户自己的已完成或失败任务。删除时同步清理数据库报告记录和本地运行文件。处理中任务返回 `409`，其他用户任务返回 `404`。
+
 ## 咨询师接口
 
 ```http
@@ -254,7 +261,7 @@ Authorization: Bearer <token>
 | 分组 | 接口 | 用途 |
 | --- | --- | --- |
 | 认证 | `/api/auth/register`, `/api/auth/jwt/login`, `/api/users/me` | 注册、登录、读取当前用户 |
-| 普通用户 | `/api/videos/upload`, `/api/me/tasks`, `/api/me/counselors` | 上传视频、查看历史、查看授权咨询师 |
+| 普通用户 | `/api/videos/upload`, `/api/me/tasks`, `/api/me/counselors` | 上传视频、查看历史、查看授权咨询师、删除自己的历史任务 |
 | 咨询师 | `/api/counselor/clients`, `/api/counselor/bindings`, `/api/counselor/users/{id}/history` | 管理绑定和查看用户历史 |
 | 咨询辅助 | `/api/counselor/users/{id}/assistance-draft`, `/api/counselor/users/{id}/notes`, `/api/counselor/users/{id}/trend` | 生成辅助建议、记录备注、查看趋势 |
 | 报告 | `/api/tasks/{task_id}`, `/api/reports/{task_id}`, `/api/reports/{task_id}/export` | 查询任务、查看报告、导出报告 |

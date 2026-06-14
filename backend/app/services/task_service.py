@@ -1,4 +1,5 @@
 import json
+import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -135,6 +136,22 @@ class TaskService:
                 .order_by(AnalysisTask.created_at.desc())
             )
         )
+
+    async def delete_user_task(self, db: AsyncSession, user: User, task_id: str) -> bool:
+        task = await db.get(AnalysisTask, task_id)
+        if not task or task.user_id != user.id:
+            return False
+        if task.status in {"queued", "processing"}:
+            raise ValueError("任务仍在处理中，请等待完成或失败后再删除")
+
+        record = await db.get(ReportRecord, task_id)
+        if record:
+            await db.delete(record)
+        await db.delete(task)
+        await db.commit()
+
+        self._delete_task_files(task)
+        return True
 
     async def serialize_task(self, db: AsyncSession, task: AnalysisTask) -> TaskOut:
         record = await db.get(ReportRecord, task.task_id)
@@ -323,6 +340,26 @@ class TaskService:
 
     def _report_path(self, task_id: str) -> Path:
         return settings.reports_dir / f"{task_id}.json"
+
+    def _delete_task_files(self, task: AnalysisTask) -> None:
+        candidates = [
+            Path(task.video_path),
+            settings.audio_dir / f"{task.task_id}.wav",
+            self._report_path(task.task_id),
+        ]
+        for path in candidates:
+            try:
+                if path.exists() and path.is_file():
+                    path.unlink()
+            except OSError:
+                pass
+
+        frames_path = settings.frames_dir / task.task_id
+        try:
+            if frames_path.exists() and frames_path.is_dir():
+                shutil.rmtree(frames_path)
+        except OSError:
+            pass
 
     def _ensure_storage_dirs(self) -> None:
         for path in (settings.uploads_dir, settings.frames_dir, settings.audio_dir, settings.reports_dir):

@@ -6,6 +6,7 @@ import {
   BarChart3,
   BookOpen,
   Brain,
+  Camera,
   CheckCircle2,
   Circle,
   Clock3,
@@ -485,6 +486,20 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
+  async function deleteTask(taskItem) {
+    if (!taskItem?.task_id) return;
+    if (!window.confirm('确认删除该任务、报告和本地运行文件吗？此操作不可恢复。')) return;
+    setError('');
+    const response = await apiFetch(`/api/me/tasks/${taskItem.task_id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError(await readError(response));
+      return;
+    }
+    if (task?.task_id === taskItem.task_id) setTask(null);
+    if (report?.task_id === taskItem.task_id) setReport(null);
+    await loadMyTasks();
+  }
+
   const viewTitle = activeView === 'education' ? '心理科普' : activeView === 'about' ? '项目说明' : '工作台';
 
   if (activeView === 'education') {
@@ -556,6 +571,7 @@ function App() {
             counselors={authorizedCounselors}
             isBusy={isBusy}
             onFileChange={setFile}
+            onDeleteTask={deleteTask}
             onOpenReport={openReport}
             onSubmit={uploadVideo}
             stageLabel={stageLabel}
@@ -882,7 +898,7 @@ function AuthPanel({ onLogin, onRegister, error, setError }) {
   );
 }
 
-function ClientWorkspace({ counselors, error, file, history, isBusy, onFileChange, onOpenReport, onSubmit, stageLabel, statusLabel, task }) {
+function ClientWorkspace({ counselors, error, file, history, isBusy, onDeleteTask, onFileChange, onOpenReport, onSubmit, stageLabel, statusLabel, task }) {
   return (
     <div className="main-grid">
       <section className="panel uploader">
@@ -912,7 +928,7 @@ function ClientWorkspace({ counselors, error, file, history, isBusy, onFileChang
       </section>
 
       <TaskStatus task={task} statusLabel={statusLabel} stageLabel={stageLabel} />
-      <HistoryPanel tasks={history} onOpenReport={onOpenReport} />
+      <HistoryPanel tasks={history} onDeleteTask={onDeleteTask} onOpenReport={onOpenReport} canDelete />
       <section className="panel history-list">
         <div className="panel-heading">
           <ShieldCheck size={20} />
@@ -1025,7 +1041,7 @@ function CounselorWorkspace({
   );
 }
 
-function HistoryPanel({ tasks = [], onOpenReport, embedded = false }) {
+function HistoryPanel({ tasks = [], onDeleteTask, onOpenReport, embedded = false, canDelete = false }) {
   return (
     <section className={embedded ? 'history-list embedded' : 'panel history-list'}>
       {!embedded ? (
@@ -1036,14 +1052,27 @@ function HistoryPanel({ tasks = [], onOpenReport, embedded = false }) {
       ) : null}
       <div className="history-items">
         {tasks.map((item) => (
-          <button key={item.task_id} type="button" className={item.status === 'failed' ? 'failed-row' : ''} onClick={() => item.report_url && onOpenReport(item)} disabled={!item.report_url}>
-            <span>
-              {item.created_at ? new Date(item.created_at).toLocaleString() : item.task_id}
-              {item.dominant_emotion ? ` · ${emotionLabel(item.dominant_emotion)}` : ''}
-              {item.error ? ` · ${item.error}` : ''}
-            </span>
-            <strong>{item.risk_level ? `${RISK_LABELS[item.risk_level] || item.risk_level}风险` : STATUS_LABELS[item.status] || item.status}</strong>
-          </button>
+          <article key={item.task_id} className={`history-row ${item.status === 'failed' ? 'failed-row' : ''}`}>
+            <button type="button" className="history-open" onClick={() => item.report_url && onOpenReport(item)} disabled={!item.report_url}>
+              <span>
+                {item.created_at ? new Date(item.created_at).toLocaleString() : item.task_id}
+                {item.dominant_emotion ? ` · ${emotionLabel(item.dominant_emotion)}` : ''}
+                {item.error ? ` · ${item.error}` : ''}
+              </span>
+              <strong>{item.risk_level ? `${RISK_LABELS[item.risk_level] || item.risk_level}风险` : STATUS_LABELS[item.status] || item.status}</strong>
+            </button>
+            {canDelete ? (
+              <button
+                className="icon-button delete-task-button"
+                type="button"
+                onClick={() => onDeleteTask?.(item)}
+                disabled={item.status === 'queued' || item.status === 'processing'}
+                title="删除任务和报告"
+              >
+                <Trash2 size={16} />
+              </button>
+            ) : null}
+          </article>
         ))}
         {!tasks.length ? <p className="muted">暂无分析历史</p> : null}
       </div>
@@ -1052,12 +1081,33 @@ function HistoryPanel({ tasks = [], onOpenReport, embedded = false }) {
 }
 
 function TrendPanel({ trend = [] }) {
+  const chartPoints = buildTrendChartPoints(trend);
+  const polyline = chartPoints.map((point) => `${point.x},${point.y}`).join(' ');
+
   return (
     <section className="sub-panel">
       <div className="panel-heading compact-heading">
         <TrendingUp size={18} />
         <h3>趋势摘要</h3>
       </div>
+      {chartPoints.length ? (
+        <div className="trend-chart" aria-label="风险等级趋势图">
+          <svg viewBox="0 0 360 150" role="img">
+            <line x1="28" y1="24" x2="28" y2="126" />
+            <line x1="28" y1="126" x2="336" y2="126" />
+            <text x="4" y="30">高</text>
+            <text x="4" y="78">中</text>
+            <text x="4" y="126">低</text>
+            {chartPoints.length > 1 ? <polyline points={polyline} /> : null}
+            {chartPoints.map((point) => (
+              <g key={point.taskId}>
+                <circle cx={point.x} cy={point.y} r="5" />
+                <text x={point.x} y="144" textAnchor="middle">{point.label}</text>
+              </g>
+            ))}
+          </svg>
+        </div>
+      ) : null}
       <div className="trend-list">
         {trend.map((point) => (
           <div key={point.task_id}>
@@ -1216,10 +1266,15 @@ function EmptyReport({ task }) {
 
 function ReportView({ report, onExportReport }) {
   const prediction = report.final_prediction;
+  const [screenshotMode, setScreenshotMode] = useState(false);
 
   return (
-    <section className="report-layout">
+    <section className={`report-layout ${screenshotMode ? 'screenshot-mode' : ''}`}>
       <div className="report-actions">
+        <button type="button" onClick={() => setScreenshotMode((current) => !current)}>
+          <Camera size={18} />
+          <span>{screenshotMode ? '退出截图模式' : '截图模式'}</span>
+        </button>
         <button type="button" onClick={() => onExportReport('json')}>
           <Download size={18} />
           <span>导出 JSON</span>
@@ -1235,6 +1290,21 @@ function ReportView({ report, onExportReport }) {
         <SummaryMetric icon={Activity} label="检测人脸" value={report.video_summary.detected_faces} />
         <SummaryMetric icon={Mic2} label="语音检测" value={report.video_summary.speech_detected ? '有语音' : '无语音'} />
       </section>
+
+      {screenshotMode ? (
+        <section className="capture-summary">
+          <article>
+            <span>综合结论</span>
+            <strong>{emotionLabel(prediction.emotion)} · {RISK_LABELS[prediction.risk_level] || prediction.risk_level}风险</strong>
+            <p>{riskRationale(prediction)}</p>
+          </article>
+          <article>
+            <span>模型信息</span>
+            <strong>{report.model_name || '本地兜底或未记录'}</strong>
+            <p>Prompt：{report.prompt_version || '未记录'}；生成时间：{report.generated_at ? new Date(report.generated_at).toLocaleString() : '未记录'}</p>
+          </article>
+        </section>
+      ) : null}
 
       <section className="report-grid">
         <article className="panel prediction-panel">
@@ -1450,6 +1520,32 @@ function formatBytes(bytes) {
 
 function formatTags(tags = []) {
   return tags.length ? tags.join(', ') : '-';
+}
+
+function buildTrendChartPoints(trend = []) {
+  if (!trend.length) return [];
+  const left = 38;
+  const right = 326;
+  const top = 24;
+  const bottom = 126;
+  const span = Math.max(trend.length - 1, 1);
+  return trend.map((point, index) => {
+    const score = riskScore(point.risk_level);
+    const x = trend.length === 1 ? (left + right) / 2 : left + ((right - left) * index) / span;
+    const y = bottom - ((bottom - top) * score) / 2;
+    return {
+      taskId: point.task_id,
+      x,
+      y,
+      label: point.created_at ? new Date(point.created_at).toLocaleDateString().slice(5) : `${index + 1}`,
+    };
+  });
+}
+
+function riskScore(riskLevel) {
+  if (riskLevel === 'high') return 2;
+  if (riskLevel === 'medium') return 1;
+  return 0;
 }
 
 function riskRationale(prediction) {
