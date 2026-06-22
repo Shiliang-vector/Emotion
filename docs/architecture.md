@@ -5,7 +5,7 @@
 ## 服务职责
 
 - `frontend`：登录、站内导航、角色工作台、心理科普、项目说明、视频上传、任务状态轮询、历史和报告展示。
-- `backend`：基于 FastAPI 和 fastapi-users 的认证授权、任务编排、视频处理、特征融合、报告持久化、LLM 调用。
+- `backend`：基于 FastAPI 和 fastapi-users 的认证授权、任务编排、视频处理、按模态质量动态加权的特征融合、报告持久化、LLM 调用。
 - `deepface`：读取抽帧结果，使用真实 DeepFace 进行人脸检测、表情概率和持续时长分析。
 - `sensevoice`：读取后端提取的音频，使用 FunASR SenseVoiceSmall 进行语音转写、语音侧情绪标签解析，并计算基础声学特征。
 - `postgres`：默认 PostgreSQL 数据库，记录用户、咨询师绑定关系、分析任务和报告 JSON；表结构由 Alembic 管理。
@@ -39,7 +39,7 @@ flowchart LR
 5. 后端从视频中提取音频到 `storage/audio/{task_id}.wav`。
 6. 后端调用 DeepFace 服务分析帧级表情。
 7. 后端调用 SenseVoice 服务分析音频。
-8. 后端融合视觉、语音和声学信息。
+8. 后端根据视觉和语音质量动态调整权重，融合表情概率、表情持续比例和语音语义信息。
 9. 后端调用 OpenAI 兼容接口生成普通用户侧专家意见。
 10. 后端保存任务和报告到数据库，同时保留 `storage/reports/{task_id}.json` 兼容文件。
 11. 心理咨询师只能查看已绑定普通用户的历史，并可生成咨询师辅助建议草稿。

@@ -8,7 +8,7 @@
 - 从视频中提取关键帧和音频。
 - 使用 DeepFace 服务负责人脸识别和表情分析。
 - 使用 SenseVoice 服务负责语音转写和语音侧信息提取。
-- 汇总表情时长概率、语音语义和声学特征。
+- 根据模态质量动态融合表情概率、表情持续比例、语音语义和声学特征。
 - 使用 OpenAI 兼容协议调用大语言模型生成普通用户侧专家建议。
 - 心理咨询师查看已关联普通用户的分析历史，并生成供专业人员参考的辅助建议草稿。
 - 前端提供工作台、心理科普和项目说明三个站内视图，便于课程答辩展示。
@@ -101,7 +101,7 @@ docker compose ps
 
 ## 当前实现说明
 
-当前代码已经搭建端到端框架，并使用 `fastapi-users` 提供注册、JWT 登录和当前用户能力。数据库默认使用 PostgreSQL，表结构由 Alembic 管理。`model-services/deepface` 已接入真实 DeepFace，用于分析抽帧后的人脸表情概率和持续时长比例。`model-services/sensevoice` 已接入 FunASR SenseVoiceSmall，用于语音转写、语音侧情绪标签解析和基础声学特征估计。
+当前代码已经搭建端到端框架，并使用 `fastapi-users` 提供注册、JWT 登录和当前用户能力。数据库默认使用 PostgreSQL，表结构由 Alembic 管理。`model-services/deepface` 已接入真实 DeepFace，用于分析抽帧后的人脸表情概率和持续时长比例。`model-services/sensevoice` 已接入 FunASR SenseVoiceSmall，用于语音转写、语音侧情绪标签解析和基础声学特征估计。融合模块会根据有效分析帧、跳过帧、表情概率集中度、语义情绪可用性、转写文本长度、音频时长、清晰度和有效语音检测结果动态调整权重，并在报告证据中记录实际使用的权重。
 
 首次运行 DeepFace 分析时，容器可能需要下载 DeepFace 情绪模型权重，速度取决于网络。Docker Compose 已配置 `deepface-cache` 卷缓存模型文件，后续运行会复用缓存。
 
